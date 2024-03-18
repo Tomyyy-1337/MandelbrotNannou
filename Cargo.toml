@@ -1,8 +1,53 @@
+# You must change these to your own details.
 [package]
-name = "mandelbrot_nannou"
-version = "0.1.0"
+name = "Mandelbrot"
+description = "Mandelbrot plotter in Rust"
+version = "0.0.1"
+authors = ["Tomyyy"]
+categories = ["wasm"]
+readme = "README.md"
 edition = "2021"
+resolver = "2" 
+
+[[bin]]
+name = "Mandelbrot"
+path = "src/main.rs"
+
+[lib]
+name = "mandlebrot_lib"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[profile.release]
+# This makes the compiled code faster and smaller, but it makes compiling slower,
+# so it's only enabled in release mode.
+lto = true
 
 [dependencies]
-nannou = "0.19.0"
+# The `wasm-bindgen` crate provides the bare minimum functionality needed
+# to interact with JavaScript.
+wasm-bindgen = "0.2.92"
+wasm-bindgen-futures = "0.4.42"
+async-std = { version = "1.12.0", features = ["unstable"] }
+nannou = { version="0.19.0", features =["wasm-experimental"]}
+rand = "0.8.5"
 rayon = "1.9.0"
+
+# The `web-sys` crate allows you to interact with the various browser APIs,
+# like the DOM.
+[dependencies.web-sys]
+version = "0.3.69"
+features = ["console"]
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so it's only enabled
+# in debug mode.
+[target."cfg(debug_assertions)".dependencies]
+console_error_panic_hook = "0.1.5"
+
+# # These crates are used for running unit tests.
+[dev-dependencies]
+wasm-bindgen-test = "0.3.42"
+futures = "0.3.30"
+js-sys = "0.3.69"
