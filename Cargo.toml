@@ -1,0 +1,8 @@
+[package]
+name = "mandelbrot_nannou"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nannou = "0.19.0"
+rayon = "1.9.0"
