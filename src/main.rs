@@ -36,7 +36,6 @@ fn mouse_moved(_app: &App, model: &mut Model, pos: Vec2) {
         let delta = pos - model.mouse_start.unwrap();
         model.mandelbrot.move_center(-delta.x as i64, delta.y as i64);
         model.mouse_start = Some(pos);
-        model.changed = true;
     }
 }
 
@@ -109,10 +108,7 @@ fn model(app: &App) -> Model {
 }
 
 fn update(app: &App, model: &mut Model, _update: Update) {
-    if model.changed {
-        model.changed = false;
-        model.mandelbrot.calculate_mandelbrot(app);
-    }
+    model.mandelbrot.calculate_mandelbrot(app, &mut model.changed);
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {

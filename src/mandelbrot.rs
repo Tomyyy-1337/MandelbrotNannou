@@ -61,9 +61,12 @@ impl Mandelbrot {
         self.last_squares = HashMap::new();
     }
 
-    pub fn calculate_mandelbrot(&mut self, app: &App) {
-        self.last_squares = HashMap::new();
-        let square_size:u32 = 64;
+    pub fn calculate_mandelbrot(&mut self, app: &App, changed: &mut bool) {
+        if *changed {
+            *changed = false;
+            return;
+        }
+        let square_size:u32 = 32;
         let top_x = self.center_x - self.width as i64 / 2;
         let top_y = self.center_y - self.height as i64 / 2;
         let start_x = top_x - top_x % square_size as i64 - square_size as i64;
@@ -75,9 +78,12 @@ impl Mandelbrot {
                 squares.push(Square::new(x, y, self.zoom, square_size, self.max_iter));
             }
         }
+
+        let num_threads = std::thread::available_parallelism().unwrap().get();    
         
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
             .filter(|square| !self.last_squares.contains_key(square))
+            .take_any(num_threads * 5)
             .map(|square|(square, square.calculate_square()))
             .collect();
 
