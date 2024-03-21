@@ -1,5 +1,8 @@
 use std::collections::HashMap;
-use nannou::image::GenericImage;
+use nannou::draw::primitive::texture;
+use nannou::image::DynamicImage;
+use nannou::wgpu::Texture;
+use nannou::App;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use crate::complex::Complex;
@@ -11,7 +14,7 @@ pub struct Mandelbrot {
     pub center_x: i64,
     pub center_y: i64,
     pub zoom: u64,
-    last_squares: HashMap<Square,SquareResult>,
+    pub last_squares: HashMap<Square, Texture>,
 }
 
 impl Mandelbrot {
@@ -37,19 +40,16 @@ impl Mandelbrot {
         self.last_squares = HashMap::new();
     }
 
-    pub fn change_size(&self ,delta_width: u32, delta_height: u32) -> Self {
+    pub fn change_size(&mut self ,delta_width: u32, delta_height: u32) {
         let width = self.width + delta_width;
         let height = self.height + delta_height;
         let zoom = self.zoom as f64 * height as f64 / self.height as f64;
-        Mandelbrot {
-            width,
-            height,
-            max_iter: self.max_iter,
-            center_x : (self.center_x as f64 * zoom / self.zoom as f64 ) as i64,
-            center_y : (self.center_y as f64 * zoom / self.zoom as f64) as i64,
-            zoom : zoom as u64,
-            last_squares: HashMap::new(),
-        }
+        self.width = width;
+        self.height = height;
+        self.zoom = zoom as u64;
+        self.center_x = (self.center_x as f64 * zoom / self.zoom as f64 ) as i64;
+        self.center_y = (self.center_y as f64 * zoom / self.zoom as f64) as i64;
+        self.last_squares = HashMap::new();
     }
     pub fn move_center(&mut self, x: i64, y: i64) {
         self.center_x += x;
@@ -61,8 +61,9 @@ impl Mandelbrot {
         self.last_squares = HashMap::new();
     }
 
-    pub fn calculate_mandelbrot(&mut self, image: &mut nannou::image::DynamicImage) {
-        let square_size:u32 = 32;
+    pub fn calculate_mandelbrot(&mut self, app: &App) {
+        self.last_squares = HashMap::new();
+        let square_size:u32 = 64;
         let top_x = self.center_x - self.width as i64 / 2;
         let top_y = self.center_y - self.height as i64 / 2;
         let start_x = top_x - top_x % square_size as i64 - square_size as i64;
@@ -75,34 +76,25 @@ impl Mandelbrot {
             }
         }
         
-        let square_results:Vec<(Square,SquareResult)> = squares.into_par_iter()
-            .map(|square| {
-                if let Some(sqr) = self.last_squares.get(&square) {
-                    return (square, sqr.clone())
-                }
-                (square, square.calculate_square())
-            })
+        let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
+            .filter(|square| !self.last_squares.contains_key(square))
+            .map(|square|(square, square.calculate_square()))
             .collect();
 
-        for (_, square_result) in square_results.iter() {
-            square_result.clone()
-                .filter(|&Pixel{x,y,color:_}| x >= top_x && y >= top_y && x < top_x + self.width as i64 && y < top_y + self.height as i64)
-                .for_each(|Pixel{x,y,color}| unsafe { image.unsafe_put_pixel((x - top_x) as u32, (y - top_y) as u32, color) });
-        }
-
-        for (square, square_result) in square_results.into_iter() {
-            self.last_squares.insert(square, square_result);
-        }
+        square_results.into_iter().for_each(|(square, square_result)| {
+            let texture = nannou::wgpu::Texture::from_image(app, &square_result);
+            self.last_squares.insert(square, texture);
+        });
     } 
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-struct Square {
-    x: i64,
-    y: i64,
-    zoom: u64,
-    size: u32,
-    max_iter: u32,
+pub struct Square {
+    pub x: i64,
+    pub y: i64,
+    pub zoom: u64,
+    pub size: u32,
+    pub max_iter: u32,
 }
 
 impl Square {
@@ -129,89 +121,23 @@ impl Square {
         nannou::image::Rgba([r,g,b,255])
     }
     
-    pub fn calculate_square(&self) -> SquareResult {
+    pub fn calculate_square(&self) -> nannou::image::DynamicImage {
         let stepsize = 1.0 / self.zoom as f64;
-        let prev = Complex::new(
-            self.x as f64 * stepsize,
-            self.y as f64 * stepsize,
-        ).calculate_mandelbrot_iterations(self.max_iter);
-        let mut all_equal = true;
-        let mut colors = vec![nannou::image::Rgba([0,0,0,255]); (self.size * self.size) as usize];
-        for a in 0..self.size as i64 {
-            for b in [0,self.size as i64 - 1] {
-                let c = Complex::new(
-                    (self.x + a) as f64 * stepsize,
-                    (self.y + b) as f64 * stepsize,
-                );
-                let result = c.calculate_mandelbrot_iterations(self.max_iter);
-                if result != prev {
-                    all_equal = false;
-                }                
-                colors[(b * self.size as i64 + a) as usize] = Self::calculate_color(result);
-                let c = Complex::new(
-                    (self.x + b) as f64 * stepsize,
-                    (self.y + a) as f64 * stepsize,
-                );
-                let result = c.calculate_mandelbrot_iterations(self.max_iter);
-                if result != prev {
-                    all_equal = false;
-                }                
-                colors[(a * self.size as i64 + b) as usize] = Self::calculate_color(result);
-            }
-        } 
-        if all_equal {
-            return SquareResult::new(vec![Self::calculate_color(prev); (self.size * self.size) as usize], self.x, self.y, self.size)
-        }
-        for y in 1..(self.size-1) as i64 {
-            for x in 1..(self.size-1) as i64 {
+        let mut colors:Vec<u8> = Vec::new();
+
+        for y in 0..self.size as i64 {
+            for x in 0..self.size as i64 {
                 let c = Complex::new(
                     (self.x + x) as f64 * stepsize,
                     (self.y + y) as f64 * stepsize,
                 );
-                colors[(y * self.size as i64 + x) as usize] = Self::calculate_color(c.calculate_mandelbrot_iterations(self.max_iter));
+                let color =  Self::calculate_color(c.calculate_mandelbrot_iterations(self.max_iter));
+                colors.push(color[0]);
+                colors.push(color[1]);
+                colors.push(color[2]);
+                colors.push(color[3]);
             }
         }
-        SquareResult::new(colors, self.x, self.y, self.size)
+        nannou::image::DynamicImage::ImageRgba8(nannou::image::RgbaImage::from_vec(self.size, self.size, colors).unwrap())
     }
-}
-
-#[derive(Debug, Clone)]
-struct SquareResult {
-    colors: Vec<nannou::image::Rgba<u8>>,
-    x: i64,
-    y: i64,
-    size: u32,
-    index: usize,
-}
-
-impl SquareResult {
-    pub fn new(colors: Vec<nannou::image::Rgba<u8>>, x: i64, y: i64, size: u32) -> Self {
-        SquareResult {
-            colors,
-            x,
-            y,
-            size,
-            index: 0,
-        }
-    }
-}
-
-impl Iterator for SquareResult {
-    type Item = Pixel;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.colors.len() {
-            return None
-        }
-        let result = Pixel{ color: self.colors[self.index], x: self.x + (self.index as i64 % self.size as i64), y: self.y + (self.index as i64 / self.size as i64) } ;
-        self.index += 1;
-        Some(result)
-    }
-
-}
-
-struct Pixel {
-    x: i64,
-    y: i64,
-    color: nannou::image::Rgba<u8>,
 }

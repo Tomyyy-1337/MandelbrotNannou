@@ -1,12 +1,11 @@
 // #![windows_subsystem = "windows"]
-use nannou::prelude::*;
+use nannou::{image::{self, DynamicImage}, prelude::*};
 
 mod mandelbrot;
 mod complex;
 
 struct Model{
     mandelbrot: mandelbrot::Mandelbrot,
-    image: nannou::image::DynamicImage,
     mouse_pressed: bool,
     mouse_start: Option<Vec2>,
     changed: bool,
@@ -16,7 +15,6 @@ impl Model {
     fn new(width: u32, height: u32) -> Model {
         Model {
             mandelbrot: mandelbrot::Mandelbrot::new(width, height, 1600, -100, 0, 200),
-            image: nannou::image::DynamicImage::new_rgb8(width, height),
             mouse_pressed: false,
             mouse_start: None,
             changed: false,
@@ -55,8 +53,7 @@ fn mouse_zoom(app: &App, model: &mut Model, delta: MouseScrollDelta, _phase: Tou
 fn window_resized(_app: &App, model: &mut Model, dim: Vec2) {
     let delta_width = dim.x as u32 - model.mandelbrot.width;
     let delta_height = dim.y as u32 - model.mandelbrot.height;
-    model.image = nannou::image::DynamicImage::new_rgb8(dim.x as u32, dim.y as u32);
-    model.mandelbrot = model.mandelbrot.change_size(delta_width, delta_height);
+    model.mandelbrot.change_size(delta_width, delta_height);
     model.changed = true;
 }
 
@@ -111,19 +108,27 @@ fn model(app: &App) -> Model {
     Model::new(width, height)
 }
 
-fn update(_app: &App, model: &mut Model, _update: Update) {
+fn update(app: &App, model: &mut Model, _update: Update) {
     if model.changed {
         model.changed = false;
-        model.mandelbrot.calculate_mandelbrot(&mut model.image);
+        model.mandelbrot.calculate_mandelbrot(app);
     }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
 
-    let texture = wgpu::Texture::from_image(app, &model.image);
-    draw.texture(&texture);
-    
+    draw.background().color(BLACK);
+
+    for (square,texture) in model.mandelbrot.last_squares.iter() {
+        let x = square.x - model.mandelbrot.center_x + square.size as i64 / 2;
+        let y = -square.y + model.mandelbrot.center_y - square.size as i64 / 2;
+        
+        draw.texture(&texture)
+            .x_y(x as f32, y as f32)
+            .w_h(square.size as f32, square.size as f32);
+    }
+
     let line_width = 500.0;
     let x = (line_width - app.window_rect().w()) / 2.0 + 10.0;
     let mut y = app.window_rect().h() / 2.0 - 20.0;
