@@ -1,9 +1,11 @@
 use std::collections::HashMap;
-use nannou::draw::primitive::texture;
+use std::collections::HashSet;
 use nannou::image::DynamicImage;
+use nannou::rand::random_range;
 use nannou::wgpu::Texture;
 use nannou::App;
 use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelBridge;
 use rayon::iter::ParallelIterator;
 use crate::complex::Complex;
 
@@ -46,11 +48,12 @@ impl Mandelbrot {
         let zoom = self.zoom as f64 * height as f64 / self.height as f64;
         self.width = width;
         self.height = height;
-        self.zoom = zoom as u64;
         self.center_x = (self.center_x as f64 * zoom / self.zoom as f64 ) as i64;
         self.center_y = (self.center_y as f64 * zoom / self.zoom as f64) as i64;
+        self.zoom = zoom as u64;
         self.last_squares = HashMap::new();
     }
+
     pub fn move_center(&mut self, x: i64, y: i64) {
         self.center_x += x;
         self.center_y += y;
@@ -80,11 +83,10 @@ impl Mandelbrot {
             }
         }
 
-        let num_threads = std::thread::available_parallelism().unwrap().get();    
-        
+        let tiles_per_frame = std::thread::available_parallelism().unwrap().get() * 8;    
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
             .filter(|square| !self.last_squares.contains_key(square))
-            .take_any(num_threads * 5)
+            .take_any(tiles_per_frame)
             .map(|square|(square, square.calculate_square()))
             .collect();
 
@@ -131,18 +133,44 @@ impl Square {
     pub fn calculate_square(&self) -> nannou::image::DynamicImage {
         let stepsize = 1.0 / self.zoom as f64;
         let mut colors:Vec<u8> = Vec::new();
-
+        colors.resize((self.size * self.size * 4) as usize, 0);
+        
+        if (0..self.size * self.size / 10)
+            .map(|_| {
+                let x = random_range(0, self.size) as usize;
+                let y = random_range(0, self.size) as usize;
+                let c = Complex::new(
+                    (self.x + x as i64) as f64 * stepsize,
+                    (self.y + y as i64) as f64 * stepsize,
+                );
+                let iterations = c.calculate_mandelbrot_iterations(self.max_iter);
+                let color =  Self::calculate_color(iterations);
+                colors[x * 4 + y * self.size as usize * 4] = color[0];
+                colors[x * 4 + y * self.size as usize * 4 + 1] = color[1];
+                colors[x * 4 + y * self.size as usize * 4 + 2] = color[2];
+                colors[x * 4 + y * self.size as usize * 4 + 3] = color[3];
+                iterations
+                
+            })
+            .all(|iterations| iterations == 0) 
+            {
+                return nannou::image::DynamicImage::ImageRgba8(nannou::image::RgbaImage::from_pixel(self.size, self.size, nannou::image::Rgba([0,0,0,255])));
+            }
+            
         for y in 0..self.size as i64 {
             for x in 0..self.size as i64 {
+                if colors[x as usize * 4 + y as usize * self.size as usize * 4 + 3] == 255 {
+                    continue;
+                }
                 let c = Complex::new(
                     (self.x + x) as f64 * stepsize,
                     (self.y + y) as f64 * stepsize,
                 );
                 let color =  Self::calculate_color(c.calculate_mandelbrot_iterations(self.max_iter));
-                colors.push(color[0]);
-                colors.push(color[1]);
-                colors.push(color[2]);
-                colors.push(color[3]);
+                colors[x as usize * 4 + y as usize * self.size as usize * 4] = color[0];
+                colors[x as usize * 4 + y as usize * self.size as usize * 4 + 1] = color[1];
+                colors[x as usize * 4 + y as usize * self.size as usize * 4 + 2] = color[2];
+                colors[x as usize * 4 + y as usize * self.size as usize * 4 + 3] = color[3];
             }
         }
         nannou::image::DynamicImage::ImageRgba8(nannou::image::RgbaImage::from_vec(self.size, self.size, colors).unwrap())
