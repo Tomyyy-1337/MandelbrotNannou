@@ -17,6 +17,8 @@ pub struct Mandelbrot {
     pub center_y: i64,
     pub zoom: u64,
     pub last_squares: HashMap<Square, Texture>,
+    pub finished_frame: bool,
+    pub new: bool,
 }
 
 impl Mandelbrot {
@@ -29,6 +31,8 @@ impl Mandelbrot {
             center_y,
             zoom,
             last_squares: HashMap::new(),
+            finished_frame: false,
+            new: true,
         }
     }
 
@@ -39,7 +43,6 @@ impl Mandelbrot {
         self.center_x = (self.center_x as f64 * new_zoom as f64 / self.zoom as f64) as i64 + x_offset as i64;
         self.center_y = (self.center_y as f64 * new_zoom as f64 / self.zoom as f64) as i64 + y_offset as i64;
         self.zoom = new_zoom;
-        self.last_squares = HashMap::new();
     }
 
     pub fn change_size(&mut self ,delta_width: u32, delta_height: u32) {
@@ -51,7 +54,6 @@ impl Mandelbrot {
         self.center_x = (self.center_x as f64 * zoom / self.zoom as f64 ) as i64;
         self.center_y = (self.center_y as f64 * zoom / self.zoom as f64) as i64;
         self.zoom = zoom as u64;
-        self.last_squares = HashMap::new();
     }
 
     pub fn move_center(&mut self, x: i64, y: i64) {
@@ -61,29 +63,31 @@ impl Mandelbrot {
 
     pub fn increase_max_iter(&mut self, delta: i32) {
         self.max_iter = ((self.max_iter as i32 + delta) as u32).max(100);
-        self.last_squares = HashMap::new();
     }
 
-    pub fn calculate_mandelbrot(&mut self, app: &App, changed: &mut bool) {
-        if *changed {
-            *changed = false;
+    pub fn calculate_mandelbrot(&mut self, app: &App) {
+        if self.new {
+            self.new = false;
             return;
         }
-
         let square_size:u32 = 48;
         let top_x = self.center_x - self.width as i64 / 2;
         let top_y = self.center_y - self.height as i64 / 2;
         let start_x = top_x - top_x % square_size as i64 - square_size as i64;
         let start_y = top_y - top_y % square_size as i64 - square_size as i64;
-
+        
         let mut squares:Vec<Square> = Vec::new();
         for x in (start_x..top_x + self.width as i64).step_by(square_size as usize) {
             for y in (start_y..top_y + self.height as i64).step_by(square_size as usize) {
                 squares.push(Square::new(x, y, self.zoom, square_size, self.max_iter));
             }
         }
-
-        let tiles_per_frame = std::thread::available_parallelism().unwrap().get() * 5;    
+        self.finished_frame = squares.iter().find(|square| !self.last_squares.contains_key(square)).is_none();
+        if self.finished_frame {
+            self.last_squares.retain(|square, _| square.zoom == self.zoom && square.max_iter == self.max_iter);
+        }
+        
+        let tiles_per_frame = std::thread::available_parallelism().unwrap().get() * 8;    
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
             .filter(|square| !self.last_squares.contains_key(square))
             .take_any(tiles_per_frame)
