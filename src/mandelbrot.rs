@@ -66,6 +66,7 @@ impl Mandelbrot {
             *changed = false;
             return;
         }
+
         let square_size:u32 = 32;
         let top_x = self.center_x - self.width as i64 / 2;
         let top_y = self.center_y - self.height as i64 / 2;

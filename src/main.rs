@@ -1,5 +1,5 @@
 // #![windows_subsystem = "windows"]
-use nannou::{image::{self, DynamicImage}, prelude::*};
+use nannou::prelude::*;
 
 mod mandelbrot;
 mod complex;
@@ -116,14 +116,24 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw.background().color(BLACK);
 
-    for (square,texture) in model.mandelbrot.last_squares.iter() {
-        let x = square.x - model.mandelbrot.center_x + square.size as i64 / 2;
-        let y = -square.y + model.mandelbrot.center_y - square.size as i64 / 2;
-        
-        draw.texture(&texture)
-            .x_y(x as f32, y as f32)
-            .w_h(square.size as f32, square.size as f32);
-    }
+    model.mandelbrot.last_squares
+        .iter()
+        .filter(|(square, _)| {
+            let top_x = model.mandelbrot.center_x - model.mandelbrot.width as i64 / 2;
+            let top_y = model.mandelbrot.center_y - model.mandelbrot.height as i64 / 2;
+            let bottom_x = top_x + model.mandelbrot.width as i64;
+            let bottom_y = top_y + model.mandelbrot.height as i64;
+            let square_bottom_x = square.x + square.size as i64;
+            let square_bottom_y = square.y + square.size as i64;
+            square.x < bottom_x && square_bottom_x > top_x && square.y < bottom_y && square_bottom_y > top_y
+        }).for_each(|(square, texture)| {
+            let x = square.x - model.mandelbrot.center_x + square.size as i64 / 2;
+            let y = -square.y + model.mandelbrot.center_y - square.size as i64 / 2;
+            
+            draw.texture(&texture)
+                .x_y(x as f32, y as f32)
+                .w_h(square.size as f32, square.size as f32);
+        });
 
     let line_width = 500.0;
     let x = (line_width - app.window_rect().w()) / 2.0 + 10.0;
