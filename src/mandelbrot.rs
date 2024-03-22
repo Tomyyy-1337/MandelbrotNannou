@@ -70,7 +70,7 @@ impl Mandelbrot {
             return;
         }
 
-        let square_size:u32 = 32;
+        let square_size:u32 = 48;
         let top_x = self.center_x - self.width as i64 / 2;
         let top_y = self.center_y - self.height as i64 / 2;
         let start_x = top_x - top_x % square_size as i64 - square_size as i64;
@@ -83,7 +83,7 @@ impl Mandelbrot {
             }
         }
 
-        let tiles_per_frame = std::thread::available_parallelism().unwrap().get() * 8;    
+        let tiles_per_frame = std::thread::available_parallelism().unwrap().get() * 5;    
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
             .filter(|square| !self.last_squares.contains_key(square))
             .take_any(tiles_per_frame)
@@ -135,7 +135,7 @@ impl Square {
         let mut colors:Vec<u8> = Vec::new();
         colors.resize((self.size * self.size * 4) as usize, 0);
         
-        if (0..self.size * self.size / 10)
+        if (0..self.size * self.size / 12)
             .map(|_| {
                 let x = random_range(0, self.size) as usize;
                 let y = random_range(0, self.size) as usize;
