@@ -23,6 +23,7 @@ impl Square {
         }
     }
 
+    #[inline]
     fn calculate_color(color: u32) -> nannou::image::Rgba<u8> {
         let num_colors = 161;
         if color == 0 {

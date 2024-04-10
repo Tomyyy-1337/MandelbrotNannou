@@ -4,6 +4,8 @@ use nannou::wgpu::Texture;
 use nannou::App;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 use crate::square::Square;
 
 pub struct Mandelbrot {
@@ -76,7 +78,7 @@ impl Mandelbrot {
         let start_x = top_x - top_x % square_size as i64 - square_size as i64;
         let start_y = top_y - top_y % square_size as i64 - square_size as i64;
         
-        let squares:Vec<Square> = (start_x..top_x + self.width as i64)
+        let mut squares:Vec<Square> = (start_x..top_x + self.width as i64)
             .step_by(square_size as usize)
             .flat_map(|x| (start_y..top_y + self.height as i64)
                 .step_by(square_size as usize)
@@ -85,15 +87,16 @@ impl Mandelbrot {
             )
             .filter(|square| !self.squares.contains_key(square))
             .collect();
-
+        
         self.finished_frame = squares.len() == 0;
         if self.finished_frame {
             self.squares.retain(|square, _| square.zoom == self.zoom && square.max_iter == self.max_iter);
             return;
         }
         
-        let calc_time = if self.just_zoomed { 75 } else { 20 };
+        let calc_time = if self.just_zoomed { 80 } else { 15 };
         let start_time = std::time::Instant::now();
+        squares.shuffle(&mut thread_rng());
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
             .take_any_while(|_| start_time.elapsed().as_millis() < calc_time)
             .map(|square|(square, square.calculate_square()))
