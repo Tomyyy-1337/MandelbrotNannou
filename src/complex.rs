@@ -5,10 +5,12 @@ pub struct Complex {
 }
 
 impl Complex {
+    #[inline]
     pub fn new(real: f64, imag: f64) -> Self {
         Self { real, imag }
     }
 
+    #[inline]
     fn square(&self) -> Self {
         Self {
             real: (self.real + self.imag) * (self.real - self.imag),
@@ -16,6 +18,7 @@ impl Complex {
         }
     }
 
+    #[inline]
     fn add(&self, other: &Complex) -> Self {
         Self {
             real: self.real + other.real,
@@ -23,6 +26,7 @@ impl Complex {
         }
     }
 
+    #[inline]
     fn norm(&self) -> f64 {
         self.real * self.real + self.imag * self.imag
     }

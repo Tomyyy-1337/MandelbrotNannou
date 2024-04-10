@@ -16,6 +16,7 @@ pub struct Mandelbrot {
     pub squares: HashMap<Square, Texture>,
     pub finished_frame: bool,
     pub new: bool,
+    just_zoomed: bool,
 }
 
 impl Mandelbrot {
@@ -30,6 +31,7 @@ impl Mandelbrot {
             squares: HashMap::new(),
             finished_frame: false,
             new: true,
+            just_zoomed: false,
         }
     }
 
@@ -40,6 +42,7 @@ impl Mandelbrot {
         self.center_x = (self.center_x as f64 * new_zoom as f64 / self.zoom as f64) as i64 + x_offset as i64;
         self.center_y = (self.center_y as f64 * new_zoom as f64 / self.zoom as f64) as i64 + y_offset as i64;
         self.zoom = new_zoom;
+        self.just_zoomed = true;
     }
 
     pub fn change_size(&mut self ,delta_width: u32, delta_height: u32) {
@@ -73,21 +76,26 @@ impl Mandelbrot {
         let start_x = top_x - top_x % square_size as i64 - square_size as i64;
         let start_y = top_y - top_y % square_size as i64 - square_size as i64;
         
-        let mut squares:Vec<Square> = Vec::new();
-        for x in (start_x..top_x + self.width as i64).step_by(square_size as usize) {
-            for y in (start_y..top_y + self.height as i64).step_by(square_size as usize) {
-                squares.push(Square::new(x, y, self.zoom, square_size, self.max_iter));
-            }
-        }
-        self.finished_frame = squares.iter().all(|square| self.squares.contains_key(square));
+        let squares:Vec<Square> = (start_x..top_x + self.width as i64)
+            .step_by(square_size as usize)
+            .flat_map(|x| (start_y..top_y + self.height as i64)
+                .step_by(square_size as usize)
+                .map(move |y| (x,y))
+                .map(|(x,y)| Square::new(x, y, self.zoom, square_size, self.max_iter))
+            )
+            .filter(|square| !self.squares.contains_key(square))
+            .collect();
+
+        self.finished_frame = squares.len() == 0;
         if self.finished_frame {
             self.squares.retain(|square, _| square.zoom == self.zoom && square.max_iter == self.max_iter);
+            return;
         }
         
-        let tiles_per_frame = std::thread::available_parallelism().unwrap().get() * 8;    
+        let calc_time = if self.just_zoomed { 75 } else { 20 };
+        let start_time = std::time::Instant::now();
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
-            .filter(|square| !self.squares.contains_key(square))
-            .take_any(tiles_per_frame)
+            .take_any_while(|_| start_time.elapsed().as_millis() < calc_time)
             .map(|square|(square, square.calculate_square()))
             .collect();
 
