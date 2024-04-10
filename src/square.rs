@@ -41,9 +41,14 @@ impl Square {
         let stepsize = 1.0 / self.zoom as f64;
         let mut colors:Vec<u8> = Vec::new();
         colors.resize((self.size * self.size * 4) as usize, 0);
-        
-        if (0..self.size * self.size / 12)
+        let prediction = Complex::new(
+            (self.x) as f64 * stepsize,
+            (self.y) as f64 * stepsize,
+        ).calculate_mandelbrot_iterations(self.max_iter);
+
+        if (0..self.size * self.size / 25)
             .map(|_| (random_range(0, self.size) as usize ,random_range(0, self.size) as usize))
+            .chain([(0, 0), (0, self.size as usize - 1), (self.size as usize - 1, 0), (self.size as usize - 1, self.size as usize - 1)])
             .collect::<HashSet<_>>()
             .into_iter()
             .map(|(x, y)| {
@@ -56,9 +61,9 @@ impl Square {
                 colors[x * 4 + y * self.size as usize * 4..x * 4 + y * self.size as usize * 4 + 4].copy_from_slice(&color.0);
                 iterations
             })
-            .all(|iterations| iterations == 0) 
+            .all(|iterations| iterations == prediction) 
             {
-                return nannou::image::DynamicImage::ImageRgba8(nannou::image::RgbaImage::from_pixel(self.size, self.size, nannou::image::Rgba([0,0,0,255])));
+                return nannou::image::DynamicImage::ImageRgba8(nannou::image::RgbaImage::from_pixel(self.size, self.size, Self::calculate_color(prediction)));
             }
             
         for y in 0..self.size as i64 {

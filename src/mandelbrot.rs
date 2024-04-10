@@ -16,6 +16,7 @@ pub struct Mandelbrot {
     pub center_y: i64,
     pub zoom: u64,
     pub squares: HashMap<Square, Texture>,
+    images: HashMap<Square, DynamicImage>,
     pub finished_frame: bool,
     pub new: bool,
     just_zoomed: bool,
@@ -31,6 +32,7 @@ impl Mandelbrot {
             center_y,
             zoom,
             squares: HashMap::new(),
+            images: HashMap::new(),
             finished_frame: false,
             new: true,
             just_zoomed: false,
@@ -91,10 +93,9 @@ impl Mandelbrot {
         self.finished_frame = squares.len() == 0;
         if self.finished_frame {
             self.squares.retain(|square, _| square.zoom == self.zoom && square.max_iter == self.max_iter);
-            return;
         }
         
-        let calc_time = if self.just_zoomed { 80 } else { 15 };
+        let calc_time = if self.just_zoomed { self.just_zoomed = false; 75 } else { 10 };
         let start_time = std::time::Instant::now();
         squares.shuffle(&mut thread_rng());
         let square_results:Vec<(Square,DynamicImage)> = squares.into_par_iter()
@@ -105,6 +106,7 @@ impl Mandelbrot {
         square_results.into_iter().for_each(|(square, square_result)| {
             let texture = nannou::wgpu::Texture::from_image(app, &square_result);
             self.squares.insert(square, texture);
+            self.images.insert(square, square_result);
         });
     } 
 }

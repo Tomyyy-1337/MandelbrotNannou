@@ -1,5 +1,5 @@
 // #![windows_subsystem = "windows"]
-use nannou::prelude::*;
+use nannou::{prelude::*, winit::event::StartCause};
 
 mod mandelbrot;
 mod complex;
@@ -59,8 +59,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .iter()
         .for_each(|(square, texture)| {
             let scale_factor = model.mandelbrot.zoom as f64 / square.zoom as f64;
-            let x = square.x as f64 * scale_factor - model.mandelbrot.center_x as f64 + square.size as f64 / 2.0 * scale_factor;
-            let y = -square.y as f64 * scale_factor + model.mandelbrot.center_y as f64 - square.size as f64 / 2.0 * scale_factor;
+            let x = (square.x as f64 + square.size as f64 / 2.0) * scale_factor - model.mandelbrot.center_x as f64;
+            let y = (-square.y as f64 - square.size as f64 / 2.0) * scale_factor + model.mandelbrot.center_y as f64;
             let z = if square.zoom == model.mandelbrot.zoom { 2.0 } else { 1.0 };
 
             if !(x - square.size as f64 * scale_factor / 2.0 > app.window_rect().right() as f64 
@@ -71,7 +71,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
             {
                 draw.texture(&texture)
                     .x_y(x as f32, y as f32)
-                    .w_h(square.size as f32 * scale_factor as f32, square.size as f32 * scale_factor as f32)
+                    .w_h((square.size as f64 * scale_factor) as f32, (square.size as f64 * scale_factor) as f32)
                     .z(z);
             }   
         });
