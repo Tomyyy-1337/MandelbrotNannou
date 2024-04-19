@@ -16,7 +16,6 @@ pub struct Mandelbrot {
     pub center_y: i64,
     pub zoom: u64,
     pub squares: HashMap<Square, Texture>,
-    images: HashMap<Square, DynamicImage>,
     pub finished_frame: bool,
     pub new: bool,
     just_zoomed: bool,
@@ -32,7 +31,6 @@ impl Mandelbrot {
             center_y,
             zoom,
             squares: HashMap::new(),
-            images: HashMap::new(),
             finished_frame: false,
             new: true,
             just_zoomed: false,
@@ -40,7 +38,7 @@ impl Mandelbrot {
     }
 
     pub fn zoom(&mut self, zoom: i32, mouse_x: i32 ,mouse_y: i32) {
-        let new_zoom = u64::max((self.zoom as f64 * 1.33f64.powi(zoom)) as u64, 16);
+        let new_zoom = u64::max((self.zoom as f64 * 1.33f64.powi(zoom)) as u64, 10);
         let x_offset = (mouse_x as i64) * (new_zoom as i64 - self.zoom as i64) / self.zoom as i64;
         let y_offset = (mouse_y as i64) * (new_zoom as i64 - self.zoom as i64) / self.zoom as i64;
         self.center_x = (self.center_x as f64 * new_zoom as f64 / self.zoom as f64) as i64 + x_offset as i64;
@@ -93,6 +91,7 @@ impl Mandelbrot {
         self.finished_frame = squares.len() == 0;
         if self.finished_frame {
             self.squares.retain(|square, _| square.zoom == self.zoom && square.max_iter == self.max_iter);
+            return;
         }
         
         let calc_time = if self.just_zoomed { self.just_zoomed = false; 75 } else { 10 };
@@ -106,7 +105,6 @@ impl Mandelbrot {
         square_results.into_iter().for_each(|(square, square_result)| {
             let texture = nannou::wgpu::Texture::from_image(app, &square_result);
             self.squares.insert(square, texture);
-            self.images.insert(square, square_result);
         });
     } 
 }

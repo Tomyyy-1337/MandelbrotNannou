@@ -38,7 +38,7 @@ impl Square {
     }
     
     pub fn calculate_square(&self) -> nannou::image::DynamicImage {
-        let stepsize = 1.0 / self.zoom as f64;
+        let stepsize = 0.05 / self.zoom as f64;
         let mut colors:Vec<u8> = Vec::new();
         colors.resize((self.size * self.size * 4) as usize, 0);
         let prediction = Complex::new(

@@ -1,5 +1,5 @@
 // #![windows_subsystem = "windows"]
-use nannou::{prelude::*, winit::event::StartCause};
+use nannou::prelude::*;
 
 mod mandelbrot;
 mod complex;
@@ -17,7 +17,7 @@ struct Model{
 impl Model {
     fn new(width: u32, height: u32) -> Model {
         Model {
-            mandelbrot: mandelbrot::Mandelbrot::new(width, height, 1600, -100, 0, 200),
+            mandelbrot: mandelbrot::Mandelbrot::new(width, height, 1600, -100, 0, 11),
             mouse_pressed: false,
             mouse_start: None,
         }
@@ -96,7 +96,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .left_justify()
         .z(10.0);
     y -= 20.0;
-    draw.text(&format!("Zoom: {:.2}", model.mandelbrot.zoom as f64 / 200.0))
+    draw.text(&format!("Zoom: {:.2}", model.mandelbrot.zoom as f64 / 10.0))
         .x_y(x, y)
         .w_h(line_width, 20.0)
         .font_size(20)
