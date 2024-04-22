@@ -79,7 +79,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let line_width = 500.0;
     let x = (line_width - app.window_rect().w()) / 2.0 + 10.0;
     let mut y = app.window_rect().h() / 2.0 - 20.0;
-    let stepsize = 1.0 / model.mandelbrot.zoom as f64;
+    let stepsize = 0.05 / model.mandelbrot.zoom as f64;
     let real = format_float((model.mandelbrot.center_x + app.mouse.x as i64) as f64 * stepsize);
     let imag = format_float(-(model.mandelbrot.center_y - app.mouse.y as i64) as f64 * stepsize);
     draw.text(&format!("C: {} + {}i", real, imag))
